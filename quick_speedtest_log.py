@@ -24,7 +24,8 @@ def log_to_file(speedtest_result: dict, write_mode: str):
     insert_header = ["timestamp"] + HEADER_ROW
     speedtest_result["timestamp"] = datetime.now().isoformat()
 
-    with open(CSV_LOCATION, write_mode) as f:
+    print(f"Opening {CSV_LOCATION} in {'append' if write_mode == 'a' else 'write'} mode")
+    with open(CSV_LOCATION, write_mode, newline='') as f:
 
         writer = csv.DictWriter(f, fieldnames=insert_header)
 
