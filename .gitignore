@@ -1,0 +1,4 @@
+.env
+test/
+one_off_scripts/
+*.csv
