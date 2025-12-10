@@ -3,7 +3,8 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 
-CSV_LOCATION = Path("speedtest.csv")
+SCRIPT_PATH = Path(__file__).parent.resolve()
+CSV_LOCATION = SCRIPT_PATH / "speedtest.csv"
 HEADER_ROW = ["server name","server id","idle latency","idle jitter","packet loss","download","upload","download bytes","upload bytes","share url","download server count","download latency","download latency jitter","download latency low","download latency high","upload latency","upload latency jitter","upload latency low","upload latency high","idle latency low","idle latency high"]
 
 def run_speedtest() -> dict:    
@@ -24,7 +25,7 @@ def log_to_file(speedtest_result: dict, write_mode: str):
     insert_header = ["timestamp"] + HEADER_ROW
     speedtest_result["timestamp"] = datetime.now().isoformat()
 
-    print(f"Opening {CSV_LOCATION} in {'append' if write_mode == 'a' else 'write'} mode")
+    print(f"Opening {CSV_LOCATION.name} in {'append' if write_mode == 'a' else 'write'} mode")
     with open(CSV_LOCATION, write_mode, newline='') as f:
 
         writer = csv.DictWriter(f, fieldnames=insert_header)
@@ -34,7 +35,7 @@ def log_to_file(speedtest_result: dict, write_mode: str):
         
         writer.writerow(speedtest_result)
 
-    print(f"Successfully logged row to CSV file {CSV_LOCATION}")
+    print(f"Successfully logged row to CSV file {CSV_LOCATION.name}")
 
 def bytes_to_megabits(num_bytes: str) -> float:
     return (float(num_bytes) * 8) / 1_000_000
