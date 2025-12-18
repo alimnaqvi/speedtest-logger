@@ -73,28 +73,28 @@ def to_csv_friendly_dict(speedtest_result: dict, message: str) -> dict:
         "is vpn": interface_info.get("isVpn"),
 
         # Ping info
-        "idle latency": ping_info.get("latency"),
-        "idle latency low": ping_info.get("low"),
-        "idle latency high": ping_info.get("high"),
-        "idle jitter": ping_info.get("jitter"),
+        "idle latency": f'{ping_info.get("latency"):.2f}',
+        "idle latency low": f'{ping_info.get("low"):.2f}',
+        "idle latency high": f'{ping_info.get("high"):.2f}',
+        "idle jitter": f'{ping_info.get("jitter"):.2f}',
 
         "packet loss": speedtest_result.get("packetLoss"),
 
         # Download info
-        "download mbps": f"{bytes_to_megabits(download_info.get("bandwidth")):.2f}",
+        "download mbps": f"{bytes_to_megabits(download_info.get('bandwidth')):.2f}",
         "download bytes": download_info.get("bytes"),
-        "download latency": download_info.get("iqm"),
-        "download latency jitter": download_latency_info.get("jitter"),
-        "download latency low": download_latency_info.get("low"),
-        "download latency high": download_latency_info.get("high"),
+        "download latency": f'{download_info.get("iqm"):.2f}',
+        "download latency jitter": f'{download_latency_info.get("jitter"):.2f}',
+        "download latency low": f'{download_latency_info.get("low"):.2f}',
+        "download latency high": f'{download_latency_info.get("high"):.2f}',
 
         # Upload info
-        "upload mbps": f"{bytes_to_megabits(upload_info.get("bandwidth")):.2f}",
+        "upload mbps": f"{bytes_to_megabits(upload_info.get('bandwidth')):.2f}",
         "upload bytes": upload_info.get("bytes"),
-        "upload latency": upload_info.get("iqm"),
-        "upload latency jitter": upload_latency_info.get("jitter"),
-        "upload latency low": upload_latency_info.get("low"),
-        "upload latency high": upload_latency_info.get("high"),
+        "upload latency": f'{upload_info.get("iqm"):.2f}',
+        "upload latency jitter": f'{upload_latency_info.get("jitter"):.2f}',
+        "upload latency low": f'{upload_latency_info.get("low"):.2f}',
+        "upload latency high": f'{upload_latency_info.get("high"):.2f}',
 
         "share url": url_info.get("url"),
         "custom note": message,
@@ -110,39 +110,47 @@ def display_one(data: dict | OrderedDict):
     dt = datetime.fromisoformat(data.get("timestamp"))
     print("Time of test:", dt.strftime("%a, %d %b %Y, %H:%M %Z"), sep="\t\t")
     print("ISP:", data.get("isp"), sep="\t\t")
-    print("Server:", f'{data.get("server name")} - {data.get("server location")} (id: {data.get("server id")})', sep="\t\t")
+    print(
+        "Server:",
+        f'{data.get("server name")} - {data.get("server location")} (id: {data.get("server id")})',
+        sep="\t\t\t"
+    )
     print(
         "Idle Latency:",
-        f'{data.get("idle latency"):.2f} ms',
-        f'(jitter: {data.get("idle jitter"):.2f} ms, low: {data.get("idle latency low"):.2f} ms, high: {data.get("idle latency high"):.2f} ms)',
-        sep="\t\t"
+        "\t\t",
+        f'{data.get("idle latency")} ms',
+        "\t",
+        f'(jitter: {data.get("idle jitter")} ms, low: {data.get("idle latency low")} ms, high: {data.get("idle latency high")} ms)',
     )
-    print("")
 
     print(
         "Download:",
-        f'{data.get("download mbps"):.2f} Mbps',
-        f'(data used: {sizeof_fmt(data.get("download bytes"))})',
-        sep="\t\t"
+        "\t\t",
+        f'{data.get("download mbps")} Mbps',
+        "\t",
+        f'(data used: {sizeof_fmt(int(data.get("download bytes")))})',
     )
     print(
         "Download latency:",
+        "\t",
         f'{data.get("download latency")} ms',
-        f'(jitter: {data.get("download latency jitter"):.2f} ms, low: {data.get("download latency low"):.2f} ms, high: {data.get("download latency high"):.2f} ms)',
-        sep="\t\t"
+        "\t",
+        f'(jitter: {data.get("download latency jitter")} ms, low: {data.get("download latency low")} ms, high: {data.get("download latency high")} ms)',
     )
 
     print(
         "Upload:",
-        f'{data.get("upload mbps"):.2f} Mbps',
-        f'(data used: {sizeof_fmt(data.get("upload bytes"))})',
-        sep="\t\t"
+        "\t\t",
+        f'{data.get("upload mbps")} Mbps',
+        "\t",
+        f'(data used: {sizeof_fmt(int(data.get("upload bytes")))})',
     )
     print(
         "Upload latency:",
+        "\t",
         f'{data.get("upload latency")} ms',
-        f'(jitter: {data.get("upload latency jitter"):.2f} ms, low: {data.get("upload latency low"):.2f} ms, high: {data.get("upload latency high"):.2f} ms)',
-        sep="\t\t"
+        "\t",
+        f'(jitter: {data.get("upload latency jitter")} ms, low: {data.get("upload latency low")} ms, high: {data.get("upload latency high")} ms)',
     )
 
     print("Packet loss:", f'{data.get("packet loss")}', sep="\t\t")
@@ -156,7 +164,7 @@ def display_last_n(n: int):
         reader = csv.DictReader(f)
         all_rows = list(reader) # list of OrderedDict
 
-    for row in all_rows[n:]: # Slice only last n
+    for row in all_rows[-n:]: # Slice only last n
         display_one(row)
 
 
@@ -176,11 +184,11 @@ def log_to_file(csv_fiendly_result: dict, write_mode: str):
 
 def main():
     parser = argparse.ArgumentParser(description='A utility for running Ookla Speedtest and logging the results.')
-    parser.add_argument('-c', '--check', help='Run the speedtest now and print the results without logging.')
-    parser.add_argument('-l', '--log', help='Run the speedtest now and log the results.')
+    parser.add_argument('-c', '--check', action='store_true', help='Run the speedtest now and print the results without logging.')
+    parser.add_argument('-l', '--log', action='store_true', help='Run the speedtest now and log the results.')
     parser.add_argument('-m', '--message', default="", help='Log message. This option has no effect if not used with the -l (--log) option.')
-    parser.add_argument('-s', '--show', help='Show (print to stdout) the results of the last n (default 10) speed checks.')
-    parser.add_argument('-n', '--number', default="10", type=int, help='The number of last speed checks to print with -s (--show) option. -n option has no effect without the -s option.')
+    parser.add_argument('-s', '--show', action='store_true', help='Show (print to stdout) the results of the last n (default 10) speed checks.')
+    parser.add_argument('-n', '--number', default="5", type=int, help='The number of last speed checks to print with -s (--show) option. -n option has no effect without the -s option.')
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
@@ -209,3 +217,6 @@ def main():
         if args.log:
             write_mode = 'a' if CSV_LOCATION.exists() else 'w'
             log_to_file(csv_fiendly_result, write_mode, args.message)
+
+if __name__ == "__main__":
+    main()
