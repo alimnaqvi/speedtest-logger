@@ -126,7 +126,7 @@ def to_csv_friendly_dict(speedtest_result: dict, message: str) -> dict:
 
 
 def display_one(data: dict | OrderedDict):
-    dt = datetime.fromisoformat(data.get("timestamp"))
+    dt = datetime.fromisoformat(data.get("timestamp")).astimezone()
     print("Time of test:", dt.strftime("%a, %d %b %Y, %H:%M %Z"), sep="\t\t")
     print("ISP:", data.get("isp"), sep="\t\t\t")
     print(
