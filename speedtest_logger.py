@@ -1,9 +1,11 @@
 import argparse
 import json
+import csv
 import subprocess
 from pathlib import Path
 import sys
 from datetime import datetime
+from collections import OrderedDict
 
 CSV_LOCATION = Path("speedtest.csv")
 HEADER_ROW = [
@@ -12,7 +14,7 @@ HEADER_ROW = [
     "idle latency","idle latency low","idle latency high","idle jitter","packet loss",
     "download mbps","download bytes","download latency","download latency jitter","download latency low","download latency high",
     "upload mbps","upload bytes","upload latency","upload latency jitter","upload latency low","upload latency high",
-    "share url",
+    "share url","custom note",
 ]
 
 
@@ -43,7 +45,7 @@ def bytes_to_megabits(num_bytes) -> float:
     return (num_bytes * 8) / 1_000_000
 
 
-def to_csv_friendly_dict(speedtest_result: dict) -> dict:
+def to_csv_friendly_dict(speedtest_result: dict, message: str) -> dict:
     server_info = speedtest_result.get('server')
     ping_info = speedtest_result.get('ping')
     interface_info = speedtest_result.get('interface')
@@ -54,7 +56,7 @@ def to_csv_friendly_dict(speedtest_result: dict) -> dict:
     interface_info = speedtest_result.get('interface')
     url_info = speedtest_result.get('result')
 
-    csv_friendly = {
+    csv_friendly_result = {
         "timestamp": speedtest_result.get("timestamp").replace('Z', '+00:00'),
         "isp": speedtest_result.get("isp"),
 
@@ -95,15 +97,16 @@ def to_csv_friendly_dict(speedtest_result: dict) -> dict:
         "upload latency high": upload_latency_info.get("high"),
 
         "share url": url_info.get("url"),
+        "custom note": message,
     }
 
-    if len(csv_friendly) != len(HEADER_ROW):
+    if len(csv_friendly_result) != len(HEADER_ROW):
         raise RuntimeError("Likely programming error: Size of CSV friendly dict is not equal to size of header row")
     
-    return csv_friendly
+    return csv_friendly_result
 
 
-def display_one(data: dict):
+def display_one(data: dict | OrderedDict):
     dt = datetime.fromisoformat(data.get("timestamp"))
     print("Time of test:", dt.strftime("%a, %d %b %Y, %H:%M %Z"), sep="\t\t")
     print("ISP:", data.get("isp"), sep="\t\t")
@@ -144,14 +147,31 @@ def display_one(data: dict):
 
     print("Packet loss:", f'{data.get("packet loss")}', sep="\t\t")
     print("Result URL:", f'{data.get("share url")}', sep="\t\t")
+    print("Custom note:", f'{data.get("custom note")}', sep="\t\t")
     print("")
 
 
-def display_last_n(number):
-    pass
+def display_last_n(n: int):
+    with open(CSV_LOCATION, "r") as f:
+        reader = csv.DictReader(f)
+        all_rows = list(reader) # list of OrderedDict
 
-def log_to_file(speedtest_result: dict, write_mode: str, message: str):
-    pass
+    for row in all_rows[n:]: # Slice only last n
+        display_one(row)
+
+
+def log_to_file(csv_fiendly_result: dict, write_mode: str):
+    print(f"Opening {CSV_LOCATION.name} in {'append' if write_mode == 'a' else 'write'} mode")
+
+    with open(CSV_LOCATION, write_mode, newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=HEADER_ROW)
+
+        if write_mode == 'w':
+            writer.writeheader()
+
+        writer.writerow(csv_fiendly_result)
+
+    print(f"Successfully logged row to CSV file {CSV_LOCATION.name}")
 
 
 def main():
@@ -175,18 +195,17 @@ def main():
     if args.check or args.log:
         speedtest_result = run_speedtest()
         if not speedtest_result:
-            print("Exiting because no JSON result available.")
+            print("Exiting because no JSON result is available.")
             exit(1)
 
         try:
-            csv_fiendly: dict = to_csv_friendly_dict(speedtest_result)
+            csv_fiendly_result: dict = to_csv_friendly_dict(speedtest_result, args.message)
         except Exception as e:
             print(f"An error occurred when converting result JSON to CSV friendly dict: {e}")
             exit(1)
 
-        display_one(csv_fiendly)
+        display_one(csv_fiendly_result)
 
         if args.log:
             write_mode = 'a' if CSV_LOCATION.exists() else 'w'
-            log_to_file(csv_fiendly, write_mode, args.message)
-
+            log_to_file(csv_fiendly_result, write_mode, args.message)
