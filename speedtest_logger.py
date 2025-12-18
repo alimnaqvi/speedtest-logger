@@ -5,9 +5,11 @@ import subprocess
 from pathlib import Path
 import sys
 from datetime import datetime
+import time
 from collections import OrderedDict
 
 CSV_LOCATION = Path("speedtest.csv")
+RAW_RESULTS_DIR = Path("raw_results")
 HEADER_ROW = [
     "timestamp","isp","server name","server id","server location",
     "internal ip","external ip","interface name","mac address","is vpn",
@@ -30,6 +32,15 @@ def run_speedtest() -> dict:
         print(f"Speedtest output could not be loaded as JSON: {e}")
         print(f"stdout of subprocess:\n{completed_process.stdout}" if completed_process.stdout else "Subprocess did not produce any stdout")
         print(f"stderr of subprocess:\n{completed_process.stderr}" if completed_process.stderr else "Subprocess did not produce any stderr")
+
+    try:
+        RAW_RESULTS_DIR.mkdir(exist_ok=True)
+        file_path = RAW_RESULTS_DIR / f"speedtest_{time.time()}.json"
+        with open(file_path, 'w') as f:
+            json.dump(result, f, indent=2, ensure_ascii=True)
+    except Exception as e:
+        print(f"Error saving raw results to file: {e}")
+
     return result
 
 
@@ -43,6 +54,14 @@ def sizeof_fmt(num, suffix="B"):
 
 def bytes_to_megabits(num_bytes) -> float:
     return (num_bytes * 8) / 1_000_000
+
+
+def float_to_str(num):
+    """Convert a float to a string with 2 decimal places. Return empty string if num is neither int nor float"""
+    if not isinstance(num, float) and not isinstance(num, int):
+        print(f"WARN: float_to_str expected either float or int, but received '{num}', which is of type {type(num)}")
+        return ""
+    return f'{num:.2f}'
 
 
 def to_csv_friendly_dict(speedtest_result: dict, message: str) -> dict:
@@ -73,28 +92,28 @@ def to_csv_friendly_dict(speedtest_result: dict, message: str) -> dict:
         "is vpn": interface_info.get("isVpn"),
 
         # Ping info
-        "idle latency": f'{ping_info.get("latency"):.2f}',
-        "idle latency low": f'{ping_info.get("low"):.2f}',
-        "idle latency high": f'{ping_info.get("high"):.2f}',
-        "idle jitter": f'{ping_info.get("jitter"):.2f}',
+        "idle latency": f'{float_to_str(ping_info.get("latency"))}',
+        "idle latency low": f'{float_to_str(ping_info.get("low"))}',
+        "idle latency high": f'{float_to_str(ping_info.get("high"))}',
+        "idle jitter": f'{float_to_str(ping_info.get("jitter"))}',
 
         "packet loss": speedtest_result.get("packetLoss"),
 
         # Download info
         "download mbps": f"{bytes_to_megabits(download_info.get('bandwidth')):.2f}",
         "download bytes": download_info.get("bytes"),
-        "download latency": f'{download_info.get("iqm"):.2f}',
-        "download latency jitter": f'{download_latency_info.get("jitter"):.2f}',
-        "download latency low": f'{download_latency_info.get("low"):.2f}',
-        "download latency high": f'{download_latency_info.get("high"):.2f}',
+        "download latency": f'{float_to_str(download_latency_info.get("iqm"))}',
+        "download latency jitter": f'{float_to_str(download_latency_info.get("jitter"))}',
+        "download latency low": f'{float_to_str(download_latency_info.get("low"))}',
+        "download latency high": f'{float_to_str(download_latency_info.get("high"))}',
 
         # Upload info
         "upload mbps": f"{bytes_to_megabits(upload_info.get('bandwidth')):.2f}",
         "upload bytes": upload_info.get("bytes"),
-        "upload latency": f'{upload_info.get("iqm"):.2f}',
-        "upload latency jitter": f'{upload_latency_info.get("jitter"):.2f}',
-        "upload latency low": f'{upload_latency_info.get("low"):.2f}',
-        "upload latency high": f'{upload_latency_info.get("high"):.2f}',
+        "upload latency": f'{float_to_str(upload_latency_info.get("iqm"))}',
+        "upload latency jitter": f'{float_to_str(upload_latency_info.get("jitter"))}',
+        "upload latency low": f'{float_to_str(upload_latency_info.get("low"))}',
+        "upload latency high": f'{float_to_str(upload_latency_info.get("high"))}',
 
         "share url": url_info.get("url"),
         "custom note": message,
@@ -109,7 +128,7 @@ def to_csv_friendly_dict(speedtest_result: dict, message: str) -> dict:
 def display_one(data: dict | OrderedDict):
     dt = datetime.fromisoformat(data.get("timestamp"))
     print("Time of test:", dt.strftime("%a, %d %b %Y, %H:%M %Z"), sep="\t\t")
-    print("ISP:", data.get("isp"), sep="\t\t")
+    print("ISP:", data.get("isp"), sep="\t\t\t")
     print(
         "Server:",
         f'{data.get("server name")} - {data.get("server location")} (id: {data.get("server id")})',
@@ -198,7 +217,7 @@ def main():
 
     if args.show:
         display_last_n(args.number)
-    
+
     speedtest_result : dict | None = None
     if args.check or args.log:
         speedtest_result = run_speedtest()
@@ -216,7 +235,8 @@ def main():
 
         if args.log:
             write_mode = 'a' if CSV_LOCATION.exists() else 'w'
-            log_to_file(csv_fiendly_result, write_mode, args.message)
+            log_to_file(csv_fiendly_result, write_mode)
+
 
 if __name__ == "__main__":
     main()
