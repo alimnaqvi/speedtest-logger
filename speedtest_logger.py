@@ -8,8 +8,9 @@ from datetime import datetime
 import time
 from collections import OrderedDict
 
-CSV_LOCATION = Path("speedtest.csv")
-RAW_RESULTS_DIR = Path("raw_results")
+SCRIPT_DIR = Path(__file__).parent.resolve()
+CSV_LOCATION = SCRIPT_DIR / "speedtest.csv"
+RAW_RESULTS_DIR = SCRIPT_DIR / "raw_results"
 HEADER_ROW = [
     "timestamp","isp","server name","server id","server location",
     "internal ip","external ip","interface name","mac address","is vpn",
