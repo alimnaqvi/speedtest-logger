@@ -66,24 +66,23 @@ def float_to_str(num):
 
 
 def to_csv_friendly_dict(speedtest_result: dict, message: str) -> dict:
-    server_info = speedtest_result.get('server')
-    ping_info = speedtest_result.get('ping')
-    interface_info = speedtest_result.get('interface')
-    download_info = speedtest_result.get('download')
-    download_latency_info = download_info.get('latency')
-    upload_info = speedtest_result.get('upload')
-    upload_latency_info = upload_info.get('latency')
-    interface_info = speedtest_result.get('interface')
-    url_info = speedtest_result.get('result')
+    server_info = speedtest_result.get('server', {})
+    ping_info = speedtest_result.get('ping', {})
+    interface_info = speedtest_result.get('interface', {})
+    download_info = speedtest_result.get('download', {})
+    download_latency_info = download_info.get('latency', {})
+    upload_info = speedtest_result.get('upload', {})
+    upload_latency_info = upload_info.get('latency', {})
+    url_info = speedtest_result.get('result', {})
 
     csv_friendly_result = {
-        "timestamp": speedtest_result.get("timestamp").replace('Z', '+00:00'),
+        "timestamp": speedtest_result.get("timestamp", "").replace('Z', '+00:00') if speedtest_result.get("timestamp") else "",
         "isp": speedtest_result.get("isp"),
 
         # Server info
         "server name": server_info.get("name"),
         "server id": server_info.get("id"),
-        "server location": ", ".join([server_info.get("location"), server_info.get("country")]),
+        "server location": ", ".join([v for v in [server_info.get("location"), server_info.get("country")] if v]),
 
         # Interface info
         "internal ip": interface_info.get("internalIp"),
@@ -127,12 +126,17 @@ def to_csv_friendly_dict(speedtest_result: dict, message: str) -> dict:
 
 
 def display_one(data: dict | OrderedDict):
-    dt = datetime.fromisoformat(data.get("timestamp")).astimezone()
-    print("Time of test:", dt.strftime("%a, %d %b %Y, %H:%M %Z"), sep="\t\t")
-    print("ISP:", data.get("isp"), sep="\t\t\t")
+    timestamp = data.get("timestamp")
+    if timestamp:
+        dt = datetime.fromisoformat(timestamp).astimezone()
+        print("Time of test:", dt.strftime("%a, %d %b %Y, %H:%M %Z"), sep="\t\t")
+    else:
+        print("Time of test:", "N/A", sep="\t\t")
+        
+    print("ISP:", data.get("isp") or "N/A", sep="\t\t\t")
     print(
         "Server:",
-        f'{data.get("server name")} - {data.get("server location")} (id: {data.get("server id")})',
+        f'{data.get("server name")} - {data.get("server location") or "N/A"} (id: {data.get("server id")})',
         sep="\t\t\t"
     )
     print(
@@ -143,12 +147,13 @@ def display_one(data: dict | OrderedDict):
         f'(jitter: {data.get("idle jitter")} ms, low: {data.get("idle latency low")} ms, high: {data.get("idle latency high")} ms)',
     )
 
+    download_bytes = data.get("download bytes")
     print(
         "Download:",
         "\t\t",
         f'{data.get("download mbps")} Mbps',
         "\t",
-        f'(data used: {sizeof_fmt(int(data.get("download bytes")))})',
+        f'(data used: {sizeof_fmt(int(download_bytes))})' if download_bytes else "(data used: N/A)",
     )
     print(
         "Download latency:",
@@ -158,12 +163,13 @@ def display_one(data: dict | OrderedDict):
         f'(jitter: {data.get("download latency jitter")} ms, low: {data.get("download latency low")} ms, high: {data.get("download latency high")} ms)',
     )
 
+    upload_bytes = data.get("upload bytes")
     print(
         "Upload:",
         "\t\t",
         f'{data.get("upload mbps")} Mbps',
         "\t",
-        f'(data used: {sizeof_fmt(int(data.get("upload bytes")))})',
+        f'(data used: {sizeof_fmt(int(upload_bytes))})' if upload_bytes else "(data used: N/A)",
     )
     print(
         "Upload latency:",
