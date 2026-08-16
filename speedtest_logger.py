@@ -7,8 +7,10 @@ import sys
 from datetime import datetime
 import time
 from collections import OrderedDict
+import os
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
+ENV_PATH = SCRIPT_DIR / ".env"
 CSV_LOCATION = SCRIPT_DIR / "speedtest.csv"
 RAW_RESULTS_DIR = SCRIPT_DIR / "raw_results"
 HEADER_ROW = [
@@ -19,6 +21,72 @@ HEADER_ROW = [
     "upload mbps","upload bytes","upload latency","upload latency jitter","upload latency low","upload latency high",
     "share url","custom note",
 ]
+
+
+def read_env_file(env_file_path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not env_file_path.exists():
+        return values
+
+    with open(env_file_path, "r") as f:
+        for line in f:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or "=" not in stripped:
+                continue
+
+            key, value = stripped.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            values[key] = value
+
+    return values
+
+
+def get_cloud_path() -> str:
+    cloud_path = os.getenv("CLOUD_PATH")
+    if cloud_path:
+        return cloud_path
+
+    env_values = read_env_file(ENV_PATH)
+    return env_values.get("CLOUD_PATH", "")
+
+
+def run_rclone_copy(source: Path, destination: str) -> bool:
+    command = ["rclone", "copy", str(source), destination]
+    print(f"Uploading with command: {' '.join(command)}")
+    try:
+        completed_process = subprocess.run(command, capture_output=True, text=True)
+    except FileNotFoundError:
+        print("Upload failed because 'rclone' was not found in PATH.")
+        return False
+
+    if completed_process.returncode == 0:
+        print(f"Upload successful: {source} -> {destination}")
+        return True
+
+    print(f"Upload failed for source '{source}' to destination '{destination}'.")
+    print(f"rclone exit code: {completed_process.returncode}")
+    if completed_process.stdout:
+        print(f"rclone stdout:\n{completed_process.stdout}")
+    if completed_process.stderr:
+        print(f"rclone stderr:\n{completed_process.stderr}")
+    return False
+
+
+def upload_outputs_to_cloud(upload_raw_results: bool, upload_csv: bool):
+    cloud_path = get_cloud_path()
+    if not cloud_path:
+        print("Skipping cloud upload because CLOUD_PATH is not set in environment or .env.")
+        return
+
+    normalized_cloud_path = cloud_path.rstrip("/")
+
+    if upload_raw_results:
+        raw_results_cloud_path = f"{normalized_cloud_path}/raw_results"
+        run_rclone_copy(RAW_RESULTS_DIR, raw_results_cloud_path)
+
+    if upload_csv:
+        run_rclone_copy(CSV_LOCATION, normalized_cloud_path)
 
 
 def run_speedtest() -> dict:
@@ -226,8 +294,11 @@ def main():
         display_last_n(args.number)
 
     speedtest_result : dict | None = None
+    should_upload_raw_results = False
+    should_upload_csv = False
     if args.check or args.log:
         speedtest_result = run_speedtest()
+        should_upload_raw_results = True
         if not speedtest_result:
             print("Exiting because no JSON result is available.")
             exit(1)
@@ -243,6 +314,12 @@ def main():
         if args.log:
             write_mode = 'a' if CSV_LOCATION.exists() else 'w'
             log_to_file(csv_fiendly_result, write_mode)
+            should_upload_csv = True
+
+        upload_outputs_to_cloud(
+            upload_raw_results=should_upload_raw_results,
+            upload_csv=should_upload_csv,
+        )
 
 
 if __name__ == "__main__":
